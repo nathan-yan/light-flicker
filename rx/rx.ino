@@ -11,7 +11,10 @@
 #define MIN_1_DUR 50 // 100 us
 #define TOL 50 // +- tolerance
 
-#define AVG_N 30
+#define AVG_N 20
+
+#define HOLD_TIME 10  // ms
+#define OFFSET_TIME 5 // ms
 
 RFM69OOK radio(8, 3, 1, 0);
 
@@ -42,7 +45,7 @@ void setup() {
   radio.initialize();
   // radio.setBandwidth(OOK_BW_10_4);
   // radio.setRSSIThreshold(-70);
-  radio.setFixedThreshold(10);
+  radio.setFixedThreshold(5);
   // radio.setSensitivityBoost(SENSITIVITY_BOOST_HIGH);
   radio.setFrequencyMHz(433.9);
   radio.receiveBegin();
@@ -88,42 +91,43 @@ void loop() {
 
   c++;
 
-  delayMicroseconds(20);
+  delayMicroseconds(10);
 
   // every 100 milliseconds check if transmitter held
   uint32_t t = millis();
-  if (t - t0 > 100) {
-    Serial.print(current_bit);
+  if (t - t0 > HOLD_TIME) {
+    // Serial.print(current_bit);
 
     acc(current_bit);
 
     bits++;
     t0 = t;
-  }
+  } else {
 
-  if (counts > 20) {
-    if (!is_high) {
-      // transition from low to high
-      current_bit = 1 - current_bit;
-      is_high = true;
-      t0 = t;
+    if (counts > 12) {
+      if (!is_high) {
+        // transition from low to high
+        current_bit = 1 - current_bit;
+        is_high = true;
+        t0 = t;
 
-      Serial.print(current_bit);Serial.print("*");
-      acc(current_bit);
+        // Serial.print(current_bit);Serial.print("*");
+        acc(current_bit);
 
-      bits++;
-    }
-  } else if (counts < 10) {
-    if (is_high) {
-      // transition from high to low
-      current_bit = 1 - current_bit;
-      is_high = false;
-      t0 = t;
+        bits++;
+      }
+    } else if (counts < 8) {
+      if (is_high) {
+        // transition from high to low
+        current_bit = 1 - current_bit;
+        is_high = false;
+        t0 = t;
 
-      Serial.print(current_bit);Serial.print("^");
-      acc(current_bit);
-      
-      bits++;
+        // Serial.print(current_bit);Serial.print("^");
+        acc(current_bit);
+        
+        bits++;
+      }
     }
   }
 
@@ -153,6 +157,8 @@ void loop() {
         char p[2];
         p[0] = bit_stream;
         p[1] = '\0';
+        Serial.print((int) (bit_stream & 0xff), BIN);
+        Serial.print(" ");
         Serial.print(p);
         Serial.println();
         bit_stream = 0;

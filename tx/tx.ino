@@ -3,6 +3,9 @@
 #include <SPI.h>
 #include <RFM69OOKregisters.h>
 
+#define HOLD_TIME 10  // ms
+#define OFFSET_TIME 5 // ms
+
 RFM69OOK radio(10, 3, 1, 0);
 unsigned long cnt;
 
@@ -27,7 +30,7 @@ void setup() {
   Serial.println("beginning transmission mode!");
   //radio.setFrequencyMHz(868.88);
   radio.setFrequencyMHz(433.9);
-  radio.setPowerLevel(5);
+  radio.setPowerLevel(10);
 }
 
 void delayMicros(uint32_t d) {
@@ -58,7 +61,7 @@ void flip1() {
 
 void startPacket() {
   flip1();
-  delay(720);   // send eight 1s
+  delay(8 * HOLD_TIME + OFFSET_TIME);   // send eight 1s
 }
 
 bool sendByte(byte b, bool pol) {
@@ -67,11 +70,11 @@ bool sendByte(byte b, bool pol) {
   for (int i = 0; i < 8; i++) {
     if (prev_bit == bit) {
       // delay for another 100ms
-      delay(100);
+      delay(HOLD_TIME);
     } else {
       pol = 1 - pol;
       flip(pol);
-      delay(20);
+      delay(OFFSET_TIME);
     }
 
     prev_bit = bit;
@@ -85,9 +88,9 @@ bool sendByte(byte b, bool pol) {
 void endPacket(bool pol) {
   flip0();
   if (pol == 1) {
-    delay(820);
+    delay(8 * HOLD_TIME + OFFSET_TIME);
   } else {
-    delay(800);
+    delay(8 * HOLD_TIME);
   }
 }
 
