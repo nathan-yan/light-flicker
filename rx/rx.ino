@@ -6,6 +6,9 @@
 #include <SPI.h>
 #include <RFM69OOKregisters.h>
 
+#include <Servo.h>
+#include "../packetizer/packetizer.h"
+
 #define TSIZE 400
 #define MAX_0_DUR 100000 // 100 ms
 #define MIN_1_DUR 50 // 100 us
@@ -13,8 +16,8 @@
 
 #define AVG_N 20
 
-#define HOLD_TIME 10  // ms
-#define OFFSET_TIME 5 // ms
+#define HOLD_TIME 50  // ms
+#define OFFSET_TIME 20 // ms
 
 RFM69OOK radio(8, 3, 1, 0);
 
@@ -30,6 +33,8 @@ int lastx[AVG_N];
 uint32_t c = 0;
 int counts = 0;
 
+Servo servo;
+
 void setup() {
   Serial.begin(115200);
 
@@ -43,15 +48,16 @@ void setup() {
   pinMode(13, OUTPUT);
 
   radio.initialize();
-  // radio.setBandwidth(OOK_BW_10_4);
+  radio.setBandwidth(OOK_BW_83_3);
   // radio.setRSSIThreshold(-70);
-  radio.setFixedThreshold(5);
-  // radio.setSensitivityBoost(SENSITIVITY_BOOST_HIGH);
+  radio.setFixedThreshold(20);
   radio.setFrequencyMHz(433.9);
   radio.receiveBegin();
-  radio.setPowerLevel(5);
+  radio.setPowerLevel(20);
 
   Serial.println(F("start"));
+
+  pinMode(11, OUTPUT);
 }
 
 bool is_high = false;
@@ -61,8 +67,11 @@ int bits = 0;
 
 bool in_packet = false; 
 int packet_bit_count = 0;
+int byte_count = 0;
 
 uint64_t bit_stream = 0;
+
+char packet_buffer[20];
 
 void acc(bool bit) {
   if (in_packet) {
@@ -131,16 +140,13 @@ void loop() {
     }
   }
 
-  if (bits % 50 == 0) {
-    Serial.println();
-    bits++;
-  }
 
   if ((bit_stream & 0xff) == 0xff) {
     Serial.println("detected packet start!");
     bit_stream = 0;
     in_packet = true;
     packet_bit_count = 0;
+    byte_count = 0;
   }
 
   // we've accumulated a byte
@@ -149,20 +155,42 @@ void loop() {
       packet_bit_count = 0;
 
       if (bit_stream == 0x00) {
-        Serial.println("end packet");
+        packet_buffer[byte_count + 1] = '\0';
+
+        Serial.print("end packet, received: "); Serial.print(packet_bit_count); Serial.print(" "); Serial.println(packet_buffer);
         in_packet = false;
         bit_stream = 0;
+
+        if (packet_buffer[0] == 'h' && packet_buffer[1] == 'e') {
+          servo.attach(11);
+          servo.write(40);
+          delay(400);
+          servo.write(90);
+          delay(200);
+          servo.detach();
+        } else if (packet_buffer[0] == 'w' && packet_buffer[1] == 'o') {
+          servo.attach(11);
+          servo.write(140);
+          delay(400);
+          servo.write(90);
+          delay(200);
+          servo.detach();
+        }
+
       } else {
-        Serial.println();
         char p[2];
         p[0] = bit_stream;
         p[1] = '\0';
+
+        packet_buffer[byte_count] = bit_stream;
+
         Serial.print((int) (bit_stream & 0xff), BIN);
         Serial.print(" ");
-        Serial.print(p);
-        Serial.println();
+        Serial.println(p);
         bit_stream = 0;
       }
+
+      byte_count++;
     }
   }
 

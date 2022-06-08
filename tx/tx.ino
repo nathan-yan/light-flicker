@@ -3,8 +3,10 @@
 #include <SPI.h>
 #include <RFM69OOKregisters.h>
 
-#define HOLD_TIME 10  // ms
-#define OFFSET_TIME 5 // ms
+#include <packetizer.h>
+
+#define HOLD_TIME 50  // ms
+#define OFFSET_TIME 20 // ms
 
 RFM69OOK radio(10, 3, 1, 0);
 unsigned long cnt;
@@ -19,6 +21,9 @@ void setup() {
   delay(100);
   digitalWrite(2, LOW);
 
+  pinMode(7, INPUT_PULLUP);
+  pinMode(8, INPUT_PULLUP);
+
   Serial.println("serial started");
 
   radio.initialize();
@@ -30,7 +35,7 @@ void setup() {
   Serial.println("beginning transmission mode!");
   //radio.setFrequencyMHz(868.88);
   radio.setFrequencyMHz(433.9);
-  radio.setPowerLevel(10);
+  radio.setPowerLevel(20);
 }
 
 void delayMicros(uint32_t d) {
@@ -61,7 +66,7 @@ void flip1() {
 
 void startPacket() {
   flip1();
-  delay(8 * HOLD_TIME + OFFSET_TIME);   // send eight 1s
+  delay(7 * HOLD_TIME + OFFSET_TIME);   // send eight 1s
 }
 
 bool sendByte(byte b, bool pol) {
@@ -95,14 +100,28 @@ void endPacket(bool pol) {
 }
 
 void loop() {
-  startPacket();
-  bool pol = sendByte(0xe3, 1);
-  pol = sendByte('h', pol);
-  pol = sendByte('e', pol);
-  pol = sendByte('l', pol);
-  pol = sendByte('l', pol);
-  pol = sendByte('o', pol);
-  pol = sendByte('!', pol);
-  endPacket(pol);
-  delay(1000);
+  if (digitalRead(7) == LOW) {
+    Serial.println("sending hello");
+    startPacket();
+    bool pol = sendByte('h', 1);
+    pol = sendByte('e', pol);
+    pol = sendByte('l', pol);
+    pol = sendByte('l', pol);
+    pol = sendByte('o', pol);
+    pol = sendByte(' ', pol);
+    endPacket(pol);
+    delay(1000);
+  } else if (digitalRead(8) == LOW) {
+    Serial.println("sending world");
+    startPacket();
+    bool pol;
+    pol = sendByte('w', 1);
+    pol = sendByte('o', pol);
+    pol = sendByte('r', pol);
+    pol = sendByte('l', pol);
+    pol = sendByte('d', pol);
+    pol = sendByte('!', pol);
+    endPacket(pol);
+    delay(1000);
+  }
 }
