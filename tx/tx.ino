@@ -5,10 +5,9 @@
 
 #include <packetizer.h>
 
-#define HOLD_TIME 50  // ms
-#define OFFSET_TIME 20 // ms
-
 RFM69OOK radio(10, 3, 1, 0);
+Packetizer pk(radio);
+
 unsigned long cnt;
 
 void setup() {
@@ -36,92 +35,25 @@ void setup() {
   //radio.setFrequencyMHz(868.88);
   radio.setFrequencyMHz(433.9);
   radio.setPowerLevel(20);
-}
 
-void delayMicros(uint32_t d) {
-  uint32_t t = micros() + d;
-  while(micros() < t);
-}
-
-long scale = 100;
-
-void flip(bool pol) {
-  if (!pol) flip0();
-  else flip1();
-}
-
-void flip0() {
-  radio.send(1);
-  delayMicros(1000);
-  radio.send(0);
-  delayMicros(1000);
-}
-
-void flip1() {
-  radio.send(0);
-  delayMicros(1000);
-  radio.send(1);
-  delayMicros(1000);
-}
-
-void startPacket() {
-  flip1();
-  delay(7 * HOLD_TIME + OFFSET_TIME);   // send eight 1s
-}
-
-bool sendByte(byte b, bool pol) {
-  bool bit = b & 0x80;  // 1000 0000
-  bool prev_bit = pol;
-  for (int i = 0; i < 8; i++) {
-    if (prev_bit == bit) {
-      // delay for another 100ms
-      delay(HOLD_TIME);
-    } else {
-      pol = 1 - pol;
-      flip(pol);
-      delay(OFFSET_TIME);
-    }
-
-    prev_bit = bit;
-    b <<= 1;
-    bit = b & 0x80;
-  }
-
-  return pol;
-}
-
-void endPacket(bool pol) {
-  flip0();
-  if (pol == 1) {
-    delay(8 * HOLD_TIME + OFFSET_TIME);
-  } else {
-    delay(8 * HOLD_TIME);
-  }
+  Serial.println(HOLD_TIME);
+  Serial.println(OFFSET_TIME);
 }
 
 void loop() {
   if (digitalRead(7) == LOW) {
     Serial.println("sending hello");
-    startPacket();
-    bool pol = sendByte('h', 1);
-    pol = sendByte('e', pol);
-    pol = sendByte('l', pol);
-    pol = sendByte('l', pol);
-    pol = sendByte('o', pol);
-    pol = sendByte(' ', pol);
-    endPacket(pol);
+
+    char data[6] = {'h', 'e', 'l', 'l', 'o', ' '};
+    pk.sendPacket(data, 6);
+
     delay(1000);
   } else if (digitalRead(8) == LOW) {
     Serial.println("sending world");
-    startPacket();
-    bool pol;
-    pol = sendByte('w', 1);
-    pol = sendByte('o', pol);
-    pol = sendByte('r', pol);
-    pol = sendByte('l', pol);
-    pol = sendByte('d', pol);
-    pol = sendByte('!', pol);
-    endPacket(pol);
+    
+    char data[6] = {'w', 'o', 'r', 'l', 'd', '!'};
+    pk.sendPacket(data, 6);
+
     delay(1000);
   }
 }
